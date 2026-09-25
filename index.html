@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Live Camera WebRTC</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+    color: #fff;
+}
+
+/* =========================
+   APP
+========================= */
+
+.app {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+}
+
+/* =========================
+   CAMERA BACKGROUND
+========================= */
+
+#screenVideo {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    display: none;
+
+    background: #000;
+
+    z-index: 1;
+}
+
+/* Overlay supaya UI tetap terbaca */
+.camera-overlay {
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 2;
+
+    pointer-events: none;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(0,0,0,0.28) 0%,
+            transparent 35%,
+            transparent 65%,
+            rgba(0,0,0,0.30) 100%
+        );
+}
+
+/* =========================
+   EMPTY
+========================= */
+
+.empty-screen {
+    position: absolute;
+    inset: 0;
+
+    z-index: 0;
+
+    background:
+        radial-gradient(
+            circle at center,
+            #1a1c2d 0%,
+            #0d0e1b 65%,
+            #090a12 100%
+        );
+}
+
+/* =========================
+   TOP
+========================= */
+
+.top {
+    position: absolute;
+
+    top: 35px;
+    left: 48px;
+
+    z-index: 10;
+}
+
+/* =========================
+   LIVE BADGE
+========================= */
+
+.live-status {
+    width: 88px;
+    height: 36px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+
+    border-radius: 20px;
+
+    background: rgba(34, 197, 94, 0.24);
+
+    border: 1px solid rgba(74, 255, 125, 0.08);
+
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    box-shadow:
+        0 0 14px rgba(34, 197, 94, 0.08);
+
+    color: #fff;
+
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* =========================
+   LIVE DOT
+========================= */
+
+.live-dot {
+    width: 7px;
+    height: 7px;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: #35f477;
+
+    position: relative;
+
+    box-shadow:
+        0 0 5px rgba(53,244,119,.9),
+        0 0 10px rgba(53,244,119,.5);
+
+    animation: livePulse 1.35s infinite ease-out;
+}
+
+.live-dot::after {
+    content: "";
+
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    width: 7px;
+    height: 7px;
+
+    transform: translate(-50%, -50%);
+
+    border-radius: 50%;
+
+    background: rgba(53,244,119,.45);
+
+    animation: pulseRing 1.35s infinite ease-out;
+}
+
+@keyframes livePulse {
+    0%,100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.12);
+    }
+}
+
+@keyframes pulseRing {
+    0% {
+        opacity: .75;
+        transform:
+            translate(-50%, -50%)
+            scale(1);
+    }
+
+    70%,100% {
+        opacity: 0;
+        transform:
+            translate(-50%, -50%)
+            scale(3);
+    }
+}
+
+/* =========================
+   TITLE
+========================= */
+
+.live-title {
+    margin-top: 12px;
+    margin-left: 1px;
+
+    color: #fff;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    text-shadow:
+        0 1px 8px rgba(0,0,0,.5);
+}
+
+/* =========================
+   CAMERA STATUS
+========================= */
+
+.camera-status {
+    margin-top: 8px;
+
+    color: rgba(255,255,255,.75);
+
+    font-size: 11px;
+
+    text-shadow:
+        0 1px 5px rgba(0,0,0,.8);
+}
+
+/* =========================
+   CONTROLS
+========================= */
+
+.controls {
+    position: absolute;
+
+    left: 50%;
+    bottom: 28px;
+
+    transform: translateX(-50%);
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 55px;
+
+    z-index: 10;
+}
+
+/* =========================
+   BUTTON
+========================= */
+
+.control-btn {
+    width: 72px;
+    height: 72px;
+
+    border: none;
+    outline: none;
+
+    border-radius: 50%;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    position: relative;
+
+    cursor: pointer;
+
+    -webkit-tap-highlight-color: transparent;
+
+    transition:
+        transform .15s ease,
+        box-shadow .15s ease;
+}
+
+.control-btn:active {
+    transform: scale(.92);
+}
+
+/* =========================
+   CAMERA BUTTON
+========================= */
+
+.camera-btn {
+    background:
+        linear-gradient(
+            145deg,
+            #b7c3dc,
+            #8c9bb9
+        );
+
+    box-shadow:
+        0 0 15px rgba(144,160,194,.22),
+        inset 0 1px 5px rgba(255,255,255,.28);
+}
+
+/* Camera icon */
+.camera-icon {
+    width: 28px;
+    height: 20px;
+
+    border: 3px solid #fff;
+
+    border-radius: 5px;
+
+    position: relative;
+}
+
+.camera-icon::after {
+    content: "";
+
+    position: absolute;
+
+    right: -11px;
+    top: 3px;
+
+    width: 8px;
+    height: 11px;
+
+    background: #fff;
+
+    clip-path: polygon(
+        0 20%,
+        100% 0,
+        100% 100%,
+        0 80%
+    );
+}
+
+/* =========================
+   STOP
+========================= */
+
+.stop-btn {
+    background:
+        linear-gradient(
+            145deg,
+            #ff716c,
+            #ff464b
+        );
+
+    box-shadow:
+        0 0 20px rgba(255,61,69,.38),
+        inset 0 1px 5px rgba(255,255,255,.22);
+}
+
+.stop-icon {
+    width: 25px;
+    height: 25px;
+
+    background: #fff;
+
+    border-radius: 2px;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 600px) {
+
+    .top {
+        top: 34px;
+        left: 35px;
+    }
+
+    .controls {
+        bottom: 28px;
+        gap: 55px;
+    }
+
+    .control-btn {
+        width: 68px;
+        height: 68px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- CAMERA -->
+    <video
+        id="screenVideo"
+        autoplay
+        muted
+        playsinline>
+    </video>
+
+    <div
+        class="empty-screen"
+        id="emptyScreen">
+    </div>
+
+    <!-- DARK OVERLAY -->
+    <div class="camera-overlay"></div>
+
+    <!-- TOP -->
+    <div class="top">
+
+        <div class="live-status">
+
+            <span class="live-dot"></span>
+
+            <span>LIVE</span>
+
+        </div>
+
+        <div class="live-title">
+            LIVE CAMERA
+        </div>
+
+        <div
+            class="camera-status"
+            id="cameraStatus">
+            Camera belum aktif
+        </div>
+
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+
+        <!-- START CAMERA -->
+        <button
+            type="button"
+            class="control-btn camera-btn"
+            id="cameraButton"
+            aria-label="Start Camera">
+
+            <span class="camera-icon"></span>
+
+        </button>
+
+        <!-- STOP -->
+        <button
+            type="button"
+            class="control-btn stop-btn"
+            id="stopButton"
+            aria-label="Stop">
+
+            <span class="stop-icon"></span>
+
+        </button>
+
+    </div>
+
+</div>
+
+<script>
+
+/* =========================================
+   ELEMENT
+========================================= */
+
+const video =
+    document.getElementById("screenVideo");
+
+const emptyScreen =
+    document.getElementById("emptyScreen");
+
+const cameraButton =
+    document.getElementById("cameraButton");
+
+const stopButton =
+    document.getElementById("stopButton");
+
+const cameraStatus =
+    document.getElementById("cameraStatus");
+
+
+/* =========================================
+   CAMERA STREAM
+========================================= */
+
+let localStream = null;
+
+
+/* =========================================
+   START CAMERA
+========================================= */
+
+async function startCamera() {
+
+    try {
+
+        cameraStatus.textContent =
+            "Meminta izin kamera...";
+
+        /*
+         * Browser akan menampilkan
+         * permission:
+         *
+         * "Izinkan kamera?"
+         */
+
+        localStream =
+            await navigator.mediaDevices.getUserMedia({
+
+                video: {
+                    facingMode: "user",
+
+                    width: {
+                        ideal: 1280
+                    },
+
+                    height: {
+                        ideal: 720
+                    },
+
+                    frameRate: {
+                        ideal: 30
+                    }
+                },
+
+                audio: false
+
+            });
+
+
+        /* Pasang kamera ke video */
+
+        video.srcObject =
+            localStream;
+
+
+        video.style.display =
+            "block";
+
+
+        emptyScreen.style.display =
+            "none";
+
+
+        cameraStatus.textContent =
+            "Kamera aktif";
+
+
+        await video.play();
+
+
+        /*
+         * localStream sekarang bisa
+         * diberikan ke WebRTC
+         *
+         * contoh:
+         *
+         * localStream.getTracks()
+         */
+
+
+    } catch (error) {
+
+        console.error(
+            "Camera error:",
+            error
+        );
+
+
+        cameraStatus.textContent =
+            "Izin kamera ditolak / kamera tidak tersedia";
+
+
+        video.style.display =
+            "none";
+
+
+        emptyScreen.style.display =
+            "block";
+
+    }
+
+}
+
+
+/* =========================================
+   STOP CAMERA
+========================================= */
+
+function stopCamera() {
+
+    if (localStream) {
+
+        localStream
+            .getTracks()
+            .forEach(track => {
+
+                track.stop();
+
+            });
+
+        localStream = null;
+
+    }
+
+
+    video.srcObject = null;
+
+
+    video.style.display =
+        "none";
+
+
+    emptyScreen.style.display =
+        "block";
+
+
+    cameraStatus.textContent =
+        "Camera belum aktif";
+
+}
+
+
+/* =========================================
+   BUTTON
+========================================= */
+
+cameraButton.addEventListener(
+    "click",
+    startCamera
+);
+
+
+stopButton.addEventListener(
+    "click",
+    stopCamera
+);
+
+
+/* =========================================
+   WEBRTC HELPER
+========================================= */
+
+/*
+ * Fungsi ini bisa dipanggil
+ * setelah RTCPeerConnection dibuat.
+ */
+
+function addCameraToPeerConnection(
+    peerConnection
+) {
+
+    if (!localStream) {
+
+        console.warn(
+            "Camera belum aktif."
+        );
+
+        return;
+
+    }
+
+
+    localStream
+        .getTracks()
+        .forEach(track => {
+
+            peerConnection.addTrack(
+                track,
+                localStream
+            );
+
+        });
+
+}
+
+</script>
+
+</body>
+</html>
